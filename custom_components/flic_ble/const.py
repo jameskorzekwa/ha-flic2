@@ -1,8 +1,8 @@
-"""Constants for the Flic 2 Bluetooth integration."""
+"""Constants for the Flic Bluetooth integration."""
 
 from homeassistant.const import Platform
 
-DOMAIN = "flic2"
+DOMAIN = "flic_ble"
 PLATFORMS = [Platform.EVENT, Platform.SENSOR]
 
 SERVICE_UUID = "00420000-8f59-4420-870d-84f3b617e493"

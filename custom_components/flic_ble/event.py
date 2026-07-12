@@ -1,4 +1,4 @@
-"""Flic 2 event entity."""
+"""Flic event entity."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import EVENT_TYPES
-from .entity import Flic2Entity
+from .entity import FlicEntity
 from .protocol import ButtonEvent
 
 
@@ -18,10 +18,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Flic event entity."""
-    async_add_entities([Flic2EventEntity(entry)])
+    async_add_entities([FlicEventEntity(entry)])
 
 
-class Flic2EventEntity(Flic2Entity, EventEntity):
+class FlicEventEntity(FlicEntity, EventEntity):
     """Represent click events from one Flic."""
 
     _attr_name = "Button"

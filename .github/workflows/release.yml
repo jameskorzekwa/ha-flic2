@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build HACS release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify tag matches manifest version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version="$(jq -r '.version' custom_components/flic_ble/manifest.json)"
+          test "${GITHUB_REF_NAME}" = "v${version}"
+
+      - name: Build integration archive
+        shell: bash
+        run: |
+          cd custom_components
+          zip -r ../flic_ble.zip flic_ble
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "${GITHUB_REF_NAME}" flic_ble.zip \
+            --generate-notes \
+            --title "Flic Bluetooth ${GITHUB_REF_NAME}"
+
+      - name: Upload workflow artifact
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flic_ble
+          path: flic_ble.zip

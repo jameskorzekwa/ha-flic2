@@ -1,4 +1,4 @@
-"""Config flow for Flic 2 Bluetooth."""
+"""Config flow for Flic Bluetooth."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from .const import (
 )
 from .protocol import (
     AuthenticationError,
-    Flic2ProtocolError,
+    FlicProtocolError,
     NoPairingSlotsError,
     PairingModeError,
     PairingRejectedError,
@@ -41,7 +41,7 @@ from .runtime import async_pair_device
 _LOGGER = logging.getLogger(__name__)
 
 
-def _is_flic2(info: BluetoothServiceInfoBleak) -> bool:
+def _is_supported_flic(info: BluetoothServiceInfoBleak) -> bool:
     return bool(
         info.connectable
         and (
@@ -51,8 +51,8 @@ def _is_flic2(info: BluetoothServiceInfoBleak) -> bool:
     )
 
 
-class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Pair Flic 2 buttons discovered by HA Bluetooth."""
+class FlicConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Pair supported Flic buttons discovered by HA Bluetooth."""
 
     VERSION = 1
 
@@ -64,7 +64,7 @@ class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
         self, discovery_info: BluetoothServiceInfoBleak
     ) -> ConfigFlowResult:
         """Handle automatic discovery while a Flic is in public mode."""
-        if not _is_flic2(discovery_info):
+        if not _is_supported_flic(discovery_info):
             return self.async_abort(reason="not_supported")
         await self.async_set_unique_id(discovery_info.address.upper())
         self._abort_if_unique_id_configured()
@@ -87,7 +87,7 @@ class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
         configured = self._async_current_ids(include_ignore=False)
         for info in async_discovered_service_info(self.hass):
             address = info.address.upper()
-            if address not in configured and _is_flic2(info):
+            if address not in configured and _is_supported_flic(info):
                 self._devices[address] = info
         if not self._devices:
             return self.async_abort(reason="no_devices_found")
@@ -116,33 +116,33 @@ class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
             try:
                 result = await async_pair_device(self.hass, self._discovery_info)
             except (BleakError, TimeoutError) as err:
-                _LOGGER.warning("Unable to connect to Flic 2: %s", err)
+                _LOGGER.warning("Unable to connect to Flic: %s", err)
                 errors["base"] = "connection_failed"
             except NoPairingSlotsError as err:
-                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                _LOGGER.warning("Unable to pair Flic: %s", err)
                 errors["base"] = "no_pairing_slots"
             except PairingModeError as err:
-                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                _LOGGER.warning("Unable to pair Flic: %s", err)
                 errors["base"] = "public_mode_required"
             except PairingRejectedError as err:
-                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                _LOGGER.warning("Unable to pair Flic: %s", err)
                 errors["base"] = "pairing_rejected"
             except AuthenticationError as err:
-                _LOGGER.warning("Unable to authenticate Flic 2: %s", err)
+                _LOGGER.warning("Unable to authenticate Flic: %s", err)
                 errors["base"] = "authentication_failed"
             except PairingTimeoutError as err:
-                _LOGGER.warning("Flic 2 pairing timed out: %s", err)
+                _LOGGER.warning("Flic pairing timed out: %s", err)
                 if err.state is SessionState.WAIT_FULL_VERIFY_1:
                     errors["base"] = "public_mode_required"
                 elif err.state is SessionState.ESTABLISHED:
                     errors["base"] = "initialization_timeout"
                 else:
                     errors["base"] = "pairing_interrupted"
-            except Flic2ProtocolError as err:
-                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+            except FlicProtocolError as err:
+                _LOGGER.warning("Unable to pair Flic: %s", err)
                 errors["base"] = "pairing_failed"
             except Exception:
-                _LOGGER.exception("Unexpected Flic 2 pairing failure")
+                _LOGGER.exception("Unexpected Flic pairing failure")
                 errors["base"] = "unknown"
             else:
                 if not result.pairing or not result.info:

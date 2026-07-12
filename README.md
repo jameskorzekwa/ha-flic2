@@ -1,51 +1,60 @@
-# Flic 2 Bluetooth for Home Assistant
+# **Flic Bluetooth for Home Assistant**
 
-Pair Flic 2 buttons directly with Home Assistant through its native Bluetooth
-integration—including ESPHome Bluetooth proxies. No Flic Hub and no `flicd`
-daemon are required.
+![Flic logo](custom_components/flic_ble/brand/icon.png)
 
-## Status
+Connect supported Flic buttons directly to Home Assistant through its native
+Bluetooth integration, including ESPHome Bluetooth proxies. No Flic Hub or
+`flicd` daemon is required.
 
-This is an early hardware-test release. The protocol, cryptography, packet
-framing, and event decoding are implemented and unit tested, but it still needs
-validation against physical buttons and ESPHome proxies before production use.
+## Supported hardware
 
-Supported:
-
-- Flic 2 buttons
-- Flic Duo big and small buttons through the extended Duo protocol
+- Flic v2 round buttons
+- Flic Duo
+- Big- and small-button events on Flic Duo
 - Single, double, hold, and four-direction swipe events
-- ESPHome Bluetooth proxy connection routing and failover
-- On-demand connections with a local idle watchdog to prevent stale proxy slots
+
+Legacy Flic v1 buttons are not supported. Flic v1 uses a different,
+undocumented protocol and cloud-assisted pairing mechanism. Flic has sold v2
+hardware for years, but older round buttons may still be v1.
+
+## Features
+
+- Direct encrypted pairing with Home Assistant
+- Local operation without a Flic Hub or cloud service
+- ESPHome Bluetooth proxy routing and failover
+- Persistent BLE sessions for reliable, low-latency events
 - Battery voltage reporting
+- Swipe recognition without duplicate click events
+- Hold recognition without a duplicate click on release
 
-Not supported:
+Flic Duo push-twist, fall detection, firmware updates, and HID/MIDI
+configuration are not currently supported.
 
-- Original Flic 1 buttons (their protocol is not publicly documented)
-- Flic Duo push-twist and fall-detection extensions
-- Firmware updates
-- HID/MIDI configuration
+## Installation with HACS
 
-## Installation
+This integration is intended to be installed from a tagged GitHub release
+through HACS.
 
-### Manual
+Until it is included in the default HACS repository list:
 
-1. Copy `custom_components/flic2` into `/config/custom_components/flic2`.
-2. Restart Home Assistant.
-3. Remove the target Flic 2 from any Flic Hub that should no longer own it.
-4. Hold the Flic for at least 6 seconds to enter public pairing mode.
-5. Go to **Settings → Devices & services → Add integration** and choose
-   **Flic 2 Bluetooth**.
+1. In HACS, open **Integrations**.
+2. Open the menu and choose **Custom repositories**.
+3. Add `https://github.com/jameskorzekwa/ha-flic-ble` as an **Integration**.
+4. Install **Flic Bluetooth** and restart Home Assistant.
 
-### HACS
+The Home Assistant integration domain is `flic_ble`.
 
-Add this repository as a custom integration repository, install it, and restart
-Home Assistant.
+## Pairing
 
-## ESPHome proxy requirements
+1. Remove the target button from any Flic Hub or other controller that should
+   no longer own it.
+2. Hold the button for at least six seconds to enter public pairing mode.
+3. In Home Assistant, go to **Settings → Devices & services → Add integration**.
+4. Select **Flic Bluetooth** and follow the pairing flow.
 
-The proxy nearest each button must have active connections enabled. Current
-ESPHome defaults to active connections with three slots:
+## ESPHome Bluetooth proxy requirements
+
+The proxy nearest each button must support active BLE connections:
 
 ```yaml
 bluetooth_proxy:
@@ -53,33 +62,37 @@ bluetooth_proxy:
   connection_slots: 3
 ```
 
-The integration connects when a disconnected Flic advertises after a press,
-retrieves queued button events, and lets the button disconnect after 60 seconds
-of inactivity. This avoids permanently reserving one proxy slot per button.
+Each connected button uses an active BLE connection slot. Increase the number
+of slots or distribute buttons across additional proxies when supporting more
+buttons than the nearby proxy can hold.
 
-## Event automations
+## Events
 
-Each button creates an Event entity. Big-button events are `single`, `double`,
-`hold`, and `swipe_left`/`right`/`up`/`down`. Small-button event names use the
-`small_` prefix, such as `small_single` and `small_swipe_left`. Event data also
-includes the physical button, recognized gesture, event counter, timestamp,
-queue status, and Duo acceleration vector.
+Each button creates a Home Assistant Event entity.
 
-A recognized swipe is emitted instead of the click used to initiate it, so one
-physical gesture produces one Home Assistant event. Unrecognized motion falls
-back to the normal click event.
+Round Flic buttons and the Flic Duo big button emit:
 
-## Security and protocol provenance
+- `single`
+- `double`
+- `hold`
+- `swipe_left`, `swipe_right`, `swipe_up`, and `swipe_down` on Flic Duo
 
-This project implements the officially published
-[Flic 2 Protocol Specification](https://github.com/50ButtonsEach/flic2-documentation/wiki/Flic-2-Protocol-Specification).
-It does not use, modify, decompile, or reverse engineer the proprietary `flicd`
-binary.
+The Flic Duo small button uses the `small_` prefix, such as `small_single`,
+`small_hold`, and `small_swipe_left`.
+
+Event data includes the physical button, gesture, event counter, button
+timestamp, queue status, and Duo acceleration vector when available.
+
+## Protocol and attribution
+
+The integration implements the officially published
+[Flic v2 protocol specification](https://github.com/50ButtonsEach/flic2-documentation/wiki/Flic-2-Protocol-Specification)
+and
+[Flic Duo protocol specification](https://github.com/50ButtonsEach/flic2-documentation/wiki/Flic-Duo-Protocol-Specification).
 
 The Chaskey packet-authentication code was translated from Shortcut Labs AB's
 permissively licensed Android reference library. See `NOTICE` and
 `FLIC_LICENSE.txt`.
 
-Flic Duo support follows the officially published
-[Flic Duo Protocol Specification](https://github.com/50ButtonsEach/flic2-documentation/wiki/Flic-Duo-Protocol-Specification)
-and its Android reference implementation.
+This independent project is not affiliated with or endorsed by Shortcut Labs
+AB or Flic.

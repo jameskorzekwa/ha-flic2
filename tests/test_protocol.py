@@ -1,4 +1,4 @@
-"""Tests for the standalone Flic 2 protocol implementation."""
+"""Tests for the standalone Flic protocol implementation."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import struct
 
 import pytest
 
-from custom_components.flic2.protocol import (
-    Flic2Session,
+from custom_components.flic_ble.protocol import (
+    FlicSession,
     NoPairingSlotsError,
     PairingData,
     PairingTimeoutError,
@@ -74,7 +74,7 @@ def test_plain_up_down_do_not_create_user_event() -> None:
 
 
 def test_base_flic_hold_release_does_not_emit_single() -> None:
-    # Captured from a round Flic 2: down, hold, then up+single+was_hold.
+    # Captured from a round Flic v2 button: down, hold, then up+single+was_hold.
     down = bytes.fromhex("a2267246ca0031")
     hold = bytes.fromhex("a2a67246ca0003")
     release = bytes.fromhex("37d27246ca000e")
@@ -92,7 +92,7 @@ async def test_quick_verify_request_is_fragmented_for_default_mtu() -> None:
     async def send(value: bytes) -> None:
         writes.append(value)
 
-    session = Flic2Session(
+    session = FlicSession(
         "01:02:03:04:05:06",
         send,
         pairing=PairingData(0x01020304, bytes(range(16))),
@@ -251,7 +251,7 @@ async def test_duo_init_contains_both_event_counters() -> None:
     async def send(value: bytes) -> None:
         writes.append(value)
 
-    session = Flic2Session(
+    session = FlicSession(
         "01:02:03:04:05:06",
         send,
         pairing=PairingData(1, bytes(range(16))),
@@ -276,7 +276,7 @@ async def test_no_pairing_slots_has_specific_error() -> None:
     async def send(value: bytes) -> None:
         writes.append(value)
 
-    session = Flic2Session("01:02:03:04:05:06", send)
+    session = FlicSession("01:02:03:04:05:06", send)
     await session.start()
     temporary_id = struct.unpack_from("<I", writes[0], 2)[0]
 
@@ -297,7 +297,7 @@ def test_multiple_packet_notification() -> None:
     async def send(_: bytes) -> None:
         return None
 
-    session = Flic2Session("AA:BB:CC:DD:EE:FF", send)
+    session = FlicSession("AA:BB:CC:DD:EE:FF", send)
     value = bytes([0x40, 2, 0x10, 0x11, 0x01, 3, 0x20, 0x21, 0x22])
 
     assert session._defragment(value) == [

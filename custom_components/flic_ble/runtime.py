@@ -1,4 +1,4 @@
-"""Bluetooth runtime for Flic 2 buttons."""
+"""Bluetooth runtime for Flic buttons."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from .const import (
 )
 from .protocol import (
     ButtonEvent,
-    Flic2Session,
+    FlicSession,
     PairingData,
     PairingTimeoutError,
     SessionResult,
@@ -40,8 +40,8 @@ _CONNECT_ATTEMPT_TIMEOUT_SECONDS = 75
 _INFINITE_AUTO_DISCONNECT_TIME = 511
 
 
-class Flic2Device:
-    """Manage reconnection and events for one paired Flic 2 button."""
+class FlicDevice:
+    """Manage reconnection and events for one paired Flic button."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -129,7 +129,7 @@ class Flic2Device:
                         ble_device, _latest_device, _disconnected
                     )
             except Exception:
-                _LOGGER.exception("Unable to connect to Flic 2 %s", self.address)
+                _LOGGER.exception("Unable to connect to Flic %s", self.address)
                 if self._client:
                     with contextlib.suppress(Exception):
                         await self._client.disconnect()
@@ -162,7 +162,7 @@ class Flic2Device:
             self.entry.data[CONF_PAIRING_IDENTIFIER],
             bytes.fromhex(self.entry.data[CONF_PAIRING_KEY]),
         )
-        session = Flic2Session(
+        session = FlicSession(
             self.address,
             _send,
             pairing=pairing,
@@ -179,7 +179,7 @@ class Flic2Device:
             try:
                 await session.feed_gatt(data)
             except Exception as err:
-                _LOGGER.warning("Flic 2 session failed for %s: %s", self.address, err)
+                _LOGGER.warning("Flic session failed for %s: %s", self.address, err)
                 if self._client is client:
                     with contextlib.suppress(Exception):
                         await client.disconnect()
@@ -276,7 +276,7 @@ async def async_pair_device(
         async def _send(payload: bytes) -> None:
             await client.write_gatt_char(TX_UUID, payload, response=False)
 
-        session = Flic2Session(
+        session = FlicSession(
             address,
             _send,
             mtu=getattr(client, "mtu_size", 23),

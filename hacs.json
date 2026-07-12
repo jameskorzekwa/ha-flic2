@@ -1,6 +1,7 @@
 {
-  "name": "Flic 2 Bluetooth",
+  "name": "Flic Bluetooth",
   "content_in_root": false,
-  "render_readme": true
+  "filename": "flic_ble.zip",
+  "render_readme": true,
+  "zip_release": true
 }
-

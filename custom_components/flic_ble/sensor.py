@@ -1,4 +1,4 @@
-"""Flic 2 battery sensor."""
+"""Flic battery sensor."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from homeassistant.const import UnitOfElectricPotential
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .entity import Flic2Entity
+from .entity import FlicEntity
 
 
 async def async_setup_entry(
@@ -17,10 +17,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the battery voltage sensor."""
-    async_add_entities([Flic2BatterySensor(entry)])
+    async_add_entities([FlicBatterySensor(entry)])
 
 
-class Flic2BatterySensor(Flic2Entity, SensorEntity):
+class FlicBatterySensor(FlicEntity, SensorEntity):
     """Expose the last battery voltage reported by a Flic."""
 
     _attr_name = "Battery voltage"

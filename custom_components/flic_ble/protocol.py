@@ -1,6 +1,6 @@
-"""Flic 2 GATT protocol implementation.
+"""Flic v2 GATT protocol implementation.
 
-This module implements the public Flic 2 protocol specification. The Chaskey
+This module implements the public Flic v2 protocol specification. The Chaskey
 implementation is a Python translation of Shortcut Labs AB's permissively
 licensed Android reference implementation; see NOTICE and FLIC_LICENSE.txt.
 """
@@ -56,15 +56,15 @@ OP_ACK_BUTTON_EVENTS_DUO = 36
 _MASK32 = 0xFFFFFFFF
 
 
-class Flic2ProtocolError(Exception):
+class FlicProtocolError(Exception):
     """Base protocol error."""
 
 
-class PairingError(Flic2ProtocolError):
+class PairingError(FlicProtocolError):
     """Pairing failed."""
 
 
-class AuthenticationError(Flic2ProtocolError):
+class AuthenticationError(FlicProtocolError):
     """Packet authentication failed."""
 
 
@@ -175,7 +175,7 @@ class _BitReader:
 
     def read(self, width: int) -> int:
         if width < 0 or self._position + width > self._size:
-            raise Flic2ProtocolError("Truncated Flic Duo event bitstream")
+            raise FlicProtocolError("Truncated Flic Duo event bitstream")
         value = (self._value >> self._position) & ((1 << width) - 1)
         self._position += width
         return value
@@ -413,7 +413,7 @@ def chaskey_signature(key: bytes, direction: int, counter: int, packet: bytes) -
 
 
 def decode_button_events(payload: bytes, final_event_count: int) -> list[ButtonEvent]:
-    """Decode Flic 2 event items into single/double/hold events."""
+    """Decode Flic event items into single/double/hold events."""
     events: list[ButtonEvent] = []
     for offset in range(0, len(payload) - 6, 7):
         raw = int.from_bytes(payload[offset : offset + 7], "little")
@@ -463,8 +463,8 @@ def button_events_need_ack(payload: bytes) -> bool:
     return False
 
 
-class Flic2Session:
-    """State machine for one Flic 2 GATT connection."""
+class FlicSession:
+    """State machine for one Flic GATT connection."""
 
     def __init__(
         self,
@@ -576,7 +576,7 @@ class Flic2Session:
 
     async def _send_signed(self, packet: bytes) -> None:
         if self._session_key is None:
-            raise Flic2ProtocolError("Session key is not established")
+            raise FlicProtocolError("Session key is not established")
         signature = chaskey_signature(self._session_key, 1, self._tx_counter, packet)
         self._tx_counter += 1
         await self._send_packet(packet + signature)
@@ -810,13 +810,13 @@ class Flic2Session:
             OP_INIT_BUTTON_EVENTS_RESPONSE_WITHOUT_BOOT_ID,
         ):
             if len(data) < 10:
-                raise Flic2ProtocolError("Malformed init response")
+                raise FlicProtocolError("Malformed init response")
             packed_time = int.from_bytes(data[:6], "little")
             has_queued = bool(packed_time & 1)
             self.result.event_count = struct.unpack_from("<I", data, 6)[0]
             if opcode == OP_INIT_BUTTON_EVENTS_RESPONSE_WITH_BOOT_ID:
                 if len(data) < 14:
-                    raise Flic2ProtocolError("Init response omitted its boot id")
+                    raise FlicProtocolError("Init response omitted its boot id")
                 self.result.boot_id = struct.unpack_from("<I", data, 10)[0]
             self.ready.set()
             self._notify_state()
@@ -827,7 +827,7 @@ class Flic2Session:
             OP_INIT_BUTTON_EVENTS_DUO_RESPONSE_WITHOUT_BOOT_ID,
         ):
             if len(data) < 14:
-                raise Flic2ProtocolError("Malformed Flic Duo init response")
+                raise FlicProtocolError("Malformed Flic Duo init response")
             packed_time = int.from_bytes(data[:6], "little")
             has_queued = bool(packed_time & 1)
             self.result.event_count, self.result.event_count_small = struct.unpack_from(
@@ -835,7 +835,7 @@ class Flic2Session:
             )
             if opcode == OP_INIT_BUTTON_EVENTS_DUO_RESPONSE_WITH_BOOT_ID:
                 if len(data) < 18:
-                    raise Flic2ProtocolError("Duo init response omitted its boot id")
+                    raise FlicProtocolError("Duo init response omitted its boot id")
                 self.result.boot_id = struct.unpack_from("<I", data, 14)[0]
             self._duo_last_timestamp = 0
             self._duo_end_of_queue = not has_queued
@@ -884,7 +884,7 @@ class Flic2Session:
             )
             self._notify_state()
         elif opcode == OP_DISCONNECT_VERIFIED_LINK:
-            raise Flic2ProtocolError("Flic terminated the verified session")
+            raise FlicProtocolError("Flic terminated the verified session")
 
     def _notify_state(self) -> None:
         if self._state_callback:

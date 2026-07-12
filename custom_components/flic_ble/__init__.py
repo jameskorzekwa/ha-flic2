@@ -1,4 +1,4 @@
-"""The Flic 2 Bluetooth integration."""
+"""The Flic Bluetooth integration."""
 
 from __future__ import annotations
 
@@ -10,16 +10,16 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-    from .runtime import Flic2Device
+    from .runtime import FlicDevice
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry[Flic2Device]
+    hass: HomeAssistant, entry: ConfigEntry[FlicDevice]
 ) -> bool:
-    """Set up a paired Flic 2 button."""
-    from .runtime import Flic2Device
+    """Set up a paired Flic button."""
+    from .runtime import FlicDevice
 
-    device = Flic2Device(hass, entry)
+    device = FlicDevice(hass, entry)
     entry.runtime_data = device
     await device.async_start()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -27,9 +27,9 @@ async def async_setup_entry(
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: ConfigEntry[Flic2Device]
+    hass: HomeAssistant, entry: ConfigEntry[FlicDevice]
 ) -> bool:
-    """Unload a Flic 2 button."""
+    """Unload a Flic button."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         await entry.runtime_data.async_stop()
     return unload_ok
