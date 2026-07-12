@@ -1,0 +1,31 @@
+{
+  "title": "Flic 2 Bluetooth",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a Flic 2 button",
+        "description": "Hold the button for at least 6 seconds to put it in public pairing mode, then choose it below.",
+        "data": {"address": "Button"}
+      },
+      "confirm": {
+        "title": "Pair {name}",
+        "description": "Pair Flic 2 at {address} directly with Home Assistant. Keep the button in public mode by holding it for at least 6 seconds immediately before submitting."
+      }
+    },
+    "error": {
+      "pairing_failed": "Pairing failed. Remove the button from its Flic Hub, hold it for at least 6 seconds, and try again.",
+      "pairing_timeout": "The button stopped responding before pairing completed. Put it back in public mode and try again.",
+      "unknown": "An unexpected error occurred. Check the Home Assistant logs."
+    },
+    "abort": {
+      "already_configured": "This button is already configured.",
+      "no_devices_found": "No connectable Flic 2 buttons are currently in public mode.",
+      "not_supported": "This Bluetooth device is not a supported Flic 2 button."
+    }
+  },
+  "entity": {
+    "event": {"button": {"name": "Button"}},
+    "sensor": {"battery_voltage": {"name": "Battery voltage"}}
+  }
+}
+

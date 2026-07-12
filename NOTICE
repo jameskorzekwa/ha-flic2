@@ -1,0 +1,17 @@
+Flic 2 protocol implementation notice
+=====================================
+
+The Chaskey packet-authentication implementation in
+custom_components/flic2/protocol.py is a Python translation of portions of the
+official flic2lib-android reference implementation:
+
+  Copyright (c) 2019 Shortcut Labs AB
+  https://github.com/50ButtonsEach/flic2lib-android
+
+The original permission notice is reproduced in FLIC_LICENSE.txt. The Python
+translation is plainly marked as altered and is not represented as Shortcut
+Labs AB's original software.
+
+Flic and Flic 2 are trademarks of their respective owner. This project is an
+independent Home Assistant integration and is not endorsed by Flic.
+
