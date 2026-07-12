@@ -111,10 +111,7 @@ def test_decode_duo_big_single_and_swipe_left() -> None:
 
     decoded = decode_duo_button_events(payload, (0, 0), 0, True)
 
-    assert [event.event_type for event in decoded.events] == [
-        "single",
-        "swipe_left",
-    ]
+    assert [event.event_type for event in decoded.events] == ["swipe_left"]
     assert all(event.button == "big" for event in decoded.events)
     assert all(event.gesture == "left" for event in decoded.events)
     assert all(event.accelerometer == (1, -2, 3) for event in decoded.events)
@@ -158,8 +155,27 @@ def test_duo_click_timeout_does_not_repeat_swipe() -> None:
 
     decoded = decode_duo_button_events(payload, (0, 0), 0, True)
 
+    assert decoded.events == []
+
+
+def test_duo_unrecognized_gesture_preserves_click() -> None:
+    payload = _packed_bits(
+        (0, 1),
+        (0, 1),
+        (0, 3),
+        (5, 8),
+        (1, 3),
+        (1, 1),  # motion detected
+        (0, 1),  # gesture not recognized
+        (0, 8),
+        (0, 8),
+        (64, 8),
+    )
+
+    decoded = decode_duo_button_events(payload, (0, 0), 0, True)
+
     assert [event.event_type for event in decoded.events] == ["single"]
-    assert decoded.events[0].gesture == "down"
+    assert decoded.events[0].gesture == "unrecognized"
 
 
 def test_decode_duo_small_button_hold() -> None:

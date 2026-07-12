@@ -272,6 +272,12 @@ def decode_duo_button_events(
         elif event_code == 7 and not next_up_will_be_double:
             event_type = "hold"
 
+        recognized_gesture = gesture in ("left", "right", "up", "down")
+        if recognized_gesture:
+            # Treat a swipe as the user's action, not as a swipe plus the
+            # physical click that was required to activate gesture detection.
+            event_type = None
+
         if event_type:
             events.append(
                 ButtonEvent(
@@ -286,7 +292,7 @@ def decode_duo_button_events(
             )
         # The single-click timeout repeats the gesture attached to the earlier
         # release. Emit the swipe only from that release to avoid duplicates.
-        if event_code <= 4 and gesture in ("left", "right", "up", "down"):
+        if event_code <= 4 and recognized_gesture:
             events.append(
                 ButtonEvent(
                     _duo_event_type(button_number, f"swipe_{gesture}"),

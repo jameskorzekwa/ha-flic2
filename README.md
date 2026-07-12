@@ -65,6 +65,10 @@ Each button creates an Event entity. Big-button events are `single`, `double`,
 includes the physical button, recognized gesture, event counter, timestamp,
 queue status, and Duo acceleration vector.
 
+A recognized swipe is emitted instead of the click used to initiate it, so one
+physical gesture produces one Home Assistant event. Unrecognized motion falls
+back to the normal click event.
+
 ## Security and protocol provenance
 
 This project implements the officially published
