@@ -78,6 +78,7 @@ async def test_quick_verify_request_is_fragmented_for_default_mtu() -> None:
     assert session.state is SessionState.WAIT_QUICK_VERIFY
     assert len(writes) == 1
     assert writes[0][1] == 5
+    assert writes[0][9] == 0  # Do not negotiate the unsupported Duo extension.
     assert struct.unpack_from("<I", writes[0], 14)[0] == 0x01020304
 
 

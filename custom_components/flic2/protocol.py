@@ -307,7 +307,10 @@ class Flic2Session:
         self._pending_fragment = bytearray()
         self._private_key: X25519PrivateKey | None = None
         self._client_random = b""
-        self._supports_duo_flag = 0x80
+        # Keep Duo-capable buttons in the backwards-compatible base Flic 2
+        # protocol. The Duo extension uses different init/event packets that
+        # this integration does not implement.
+        self._supports_duo_flag = 0x00
 
     async def start(self) -> None:
         """Start full pairing or quick verification."""
@@ -321,7 +324,7 @@ class Flic2Session:
             return
         self.state = SessionState.WAIT_QUICK_VERIFY
         self._qv_random = os.urandom(7)
-        flags = 0x40  # supports Flic Duo extension; signature/encryption variant 0
+        flags = 0x00  # base Flic 2 protocol; signature/encryption variant 0
         packet = (
             bytes([OP_QUICK_VERIFY_REQUEST])
             + self._qv_random
@@ -562,7 +565,7 @@ class Flic2Session:
         tmp_id = struct.unpack_from("<I", data, 8)[0]
         if tmp_id != self._tmp_id:
             return
-        flags = 0x40
+        flags = 0x00
         quick_message = self._qv_random + bytes([flags]) + button_random
         self._session_key = chaskey_16(self.result.pairing.key, quick_message)
         self._conn_id = conn_id
