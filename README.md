@@ -6,6 +6,28 @@ Connect supported Flic buttons directly to Home Assistant through its native
 Bluetooth integration, including ESPHome Bluetooth proxies. No Flic Hub or
 `flicd` daemon is required.
 
+> **Use Home Assistant as your Flic hub.** This integration completely replaces
+> the Flic Hub for every button paired with it. It is not a bridge to a Flic Hub,
+> and the hub does not participate after migration.
+
+## Home Assistant replaces the Flic Hub
+
+Buttons are paired directly with Home Assistant, which owns their encrypted
+Bluetooth connections and turns their presses and gestures into Home Assistant
+events. Existing Flic Hub assignments, modules, and automations are not
+migrated.
+
+Before moving a button to Home Assistant:
+
+1. Remove it from every Flic Hub or other controller that currently owns it.
+2. Put it into public pairing mode.
+3. Pair it with **Flic Bluetooth** in Home Assistant.
+4. Recreate the button's actions as Home Assistant automations.
+
+A button cannot remain paired with a Flic Hub and Home Assistant at the same
+time. Once migrated, the Flic Hub and its modules will no longer receive events
+from that button.
+
 ## Supported hardware
 
 - Flic v2 round buttons
@@ -44,15 +66,25 @@ Until it is included in the default HACS repository list:
 
 The Home Assistant integration domain is `flic_ble`.
 
-## Pairing
+## Build a strong Bluetooth network first
 
-1. Remove the target button from any Flic Hub or other controller that should
-   no longer own it.
-2. Hold the button for at least six seconds to enter public pairing mode.
-3. In Home Assistant, go to **Settings → Devices & services → Add integration**.
-4. Select **Flic Bluetooth** and follow the pairing flow.
+Reliable Flic operation depends on reliable, continuous Bluetooth coverage at
+every button. A single Bluetooth adapter beside the Home Assistant server may
+be enough for a small space, but it is usually not enough for a larger,
+multi-floor, or RF-challenging home. Set up a distributed Bluetooth network
+before pairing buttons that are far from the server.
 
-## ESPHome Bluetooth proxy requirements
+The recommended approach is to place ESPHome Bluetooth proxies around the home
+and let Home Assistant route each Flic connection through the best available
+proxy:
+
+- [Set up an ESPHome Bluetooth proxy](https://esphome.io/components/bluetooth_proxy/)
+- [Home Assistant Bluetooth proxy documentation](https://www.home-assistant.io/integrations/bluetooth/#remote-adapters-bluetooth-proxies)
+
+Place proxies close enough to the buttons for a strong signal, keep their Wi-Fi
+or Ethernet connection reliable, and configure enough active connection slots
+for the nearby buttons. Each connected Flic uses one active BLE connection
+slot.
 
 The proxy nearest each button must support active BLE connections:
 
@@ -62,9 +94,16 @@ bluetooth_proxy:
   connection_slots: 3
 ```
 
-Each connected button uses an active BLE connection slot. Increase the number
-of slots or distribute buttons across additional proxies when supporting more
-buttons than the nearby proxy can hold.
+Increase the number of slots or distribute buttons across additional proxies
+when supporting more buttons than a nearby proxy can hold.
+
+## Pairing
+
+1. Confirm that the target button has been removed from every Flic Hub or other
+   controller. Pairing will fail while another controller still owns it.
+2. Hold the button for at least six seconds to enter public pairing mode.
+3. In Home Assistant, go to **Settings → Devices & services → Add integration**.
+4. Select **Flic Bluetooth** and follow the pairing flow.
 
 ## Events
 
@@ -96,3 +135,6 @@ permissively licensed Android reference library. See `NOTICE` and
 
 This independent project is not affiliated with or endorsed by Shortcut Labs
 AB or Flic.
+
+The Flic wordmark used in the integration icon is reproduced from Flic's
+official website solely to identify compatible Flic hardware.
