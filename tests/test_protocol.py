@@ -8,7 +8,9 @@ import pytest
 
 from custom_components.flic2.protocol import (
     Flic2Session,
+    NoPairingSlotsError,
     PairingData,
+    PairingTimeoutError,
     SessionState,
     button_events_need_ack,
     chaskey_16,
@@ -80,6 +82,28 @@ async def test_quick_verify_request_is_fragmented_for_default_mtu() -> None:
     assert writes[0][1] == 5
     assert writes[0][9] == 0  # Do not negotiate the unsupported Duo extension.
     assert struct.unpack_from("<I", writes[0], 14)[0] == 0x01020304
+
+
+@pytest.mark.asyncio
+async def test_no_pairing_slots_has_specific_error() -> None:
+    writes: list[bytes] = []
+
+    async def send(value: bytes) -> None:
+        writes.append(value)
+
+    session = Flic2Session("01:02:03:04:05:06", send)
+    await session.start()
+    temporary_id = struct.unpack_from("<I", writes[0], 2)[0]
+
+    with pytest.raises(NoPairingSlotsError):
+        await session.feed_gatt(bytes([0, 2]) + struct.pack("<I", temporary_id))
+
+
+def test_pairing_timeout_preserves_protocol_state() -> None:
+    error = PairingTimeoutError(SessionState.ESTABLISHED)
+
+    assert error.state is SessionState.ESTABLISHED
+    assert str(error) == "Timed out in protocol state ESTABLISHED"
 
 
 def test_multiple_packet_notification() -> None:

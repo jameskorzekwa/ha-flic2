@@ -74,6 +74,26 @@ class SessionState(Enum):
     FAILED = auto()
 
 
+class PairingModeError(PairingError):
+    """The button is not in public pairing mode."""
+
+
+class NoPairingSlotsError(PairingError):
+    """The button has no free logical pairing slots."""
+
+
+class PairingRejectedError(PairingError):
+    """The button explicitly rejected pairing."""
+
+
+class PairingTimeoutError(PairingError):
+    """Pairing stopped progressing in a known protocol state."""
+
+    def __init__(self, state: SessionState) -> None:
+        self.state = state
+        super().__init__(f"Timed out in protocol state {state.name}")
+
+
 @dataclass(slots=True)
 class PairingData:
     """Persisted application-layer pairing credentials."""
@@ -415,7 +435,9 @@ class Flic2Session:
         if opcode == OP_NO_LOGICAL_CONNECTION_SLOTS:
             ids = [x[0] for x in struct.iter_unpack("<I", packet[1:])]
             if self._tmp_id in ids:
-                raise PairingError("The button has no free logical connection slots")
+                raise NoPairingSlotsError(
+                    "The button has no free logical connection slots"
+                )
             return
 
         if (
@@ -435,7 +457,7 @@ class Flic2Session:
             and opcode == OP_FULL_VERIFY_FAIL_RESPONSE
         ):
             reason = packet[1] if len(packet) > 1 else 255
-            raise PairingError(f"Flic rejected pairing (reason {reason})")
+            raise PairingRejectedError(f"Flic rejected pairing (reason {reason})")
         if self.state is SessionState.WAIT_QUICK_VERIFY:
             if opcode == OP_QUICK_VERIFY_NEGATIVE_RESPONSE:
                 raise PairingError("The stored Flic pairing is no longer valid")
@@ -468,7 +490,7 @@ class Flic2Session:
                 f"expected {self.address}, got {returned_address}"
             )
         if not flags & 0x02:
-            raise PairingError("The button left public pairing mode")
+            raise PairingModeError("The button left public pairing mode")
 
         message = address_bytes + bytes([address_type]) + button_public
         sig_bits = self._verify_button_certificate(signature, message)
@@ -518,7 +540,7 @@ class Flic2Session:
                 continue
             matches.append(sig_bits)
         if len(matches) != 1:
-            raise PairingError("The Flic authenticity certificate is invalid")
+            raise AuthenticationError("The Flic authenticity certificate is invalid")
         return matches[0]
 
     async def _handle_full_verify_2(self, conn_id: int, packet: bytes) -> None:
@@ -530,7 +552,7 @@ class Flic2Session:
             raise PairingError("Malformed second verification response")
         flags = data[0]
         if not flags & 0x01:
-            raise PairingError("Flic application credentials did not match")
+            raise AuthenticationError("Flic application credentials did not match")
         button_uuid = data[1:17].hex()
         name_len = min(data[17], 23)
         name = data[18 : 18 + name_len].decode("utf-8", "replace")

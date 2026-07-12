@@ -25,7 +25,7 @@ from .protocol import (
     ButtonEvent,
     Flic2Session,
     PairingData,
-    PairingError,
+    PairingTimeoutError,
     SessionResult,
 )
 
@@ -217,12 +217,6 @@ async def async_pair_device(
     )
     try:
         async def _send(payload: bytes) -> None:
-            _LOGGER.warning(
-                "Flic 2 pairing TX to %s: state=%s bytes=%s",
-                address,
-                session.state.name,
-                payload.hex(),
-            )
             await client.write_gatt_char(TX_UUID, payload, response=False)
 
         session = Flic2Session(
@@ -233,12 +227,6 @@ async def async_pair_device(
         )
 
         def _notification(_: Any, data: bytearray) -> None:
-            _LOGGER.warning(
-                "Flic 2 pairing RX from %s: state=%s bytes=%s",
-                address,
-                session.state.name,
-                bytes(data).hex(),
-            )
             hass.async_create_task(session.feed_gatt(bytes(data)))
 
         await client.start_notify(RX_UUID, _notification)
@@ -248,9 +236,7 @@ async def async_pair_device(
                 await session.pairing_complete.wait()
                 await session.ready.wait()
         except TimeoutError as err:
-            raise PairingError(
-                f"Timed out in protocol state {session.state.name}"
-            ) from err
+            raise PairingTimeoutError(session.state) from err
         if session.failure:
             raise session.failure
         return session.result

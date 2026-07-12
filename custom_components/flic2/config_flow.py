@@ -25,7 +25,15 @@ from .const import (
     DOMAIN,
     SERVICE_UUID,
 )
-from .protocol import Flic2ProtocolError
+from .protocol import (
+    AuthenticationError,
+    Flic2ProtocolError,
+    NoPairingSlotsError,
+    PairingModeError,
+    PairingRejectedError,
+    PairingTimeoutError,
+    SessionState,
+)
 from .runtime import async_pair_device
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,9 +113,30 @@ class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 result = await async_pair_device(self.hass, self._discovery_info)
-            except TimeoutError:
-                errors["base"] = "pairing_timeout"
-            except (BleakError, Flic2ProtocolError) as err:
+            except (BleakError, TimeoutError) as err:
+                _LOGGER.warning("Unable to connect to Flic 2: %s", err)
+                errors["base"] = "connection_failed"
+            except NoPairingSlotsError as err:
+                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                errors["base"] = "no_pairing_slots"
+            except PairingModeError as err:
+                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                errors["base"] = "public_mode_required"
+            except PairingRejectedError as err:
+                _LOGGER.warning("Unable to pair Flic 2: %s", err)
+                errors["base"] = "pairing_rejected"
+            except AuthenticationError as err:
+                _LOGGER.warning("Unable to authenticate Flic 2: %s", err)
+                errors["base"] = "authentication_failed"
+            except PairingTimeoutError as err:
+                _LOGGER.warning("Flic 2 pairing timed out: %s", err)
+                if err.state is SessionState.WAIT_FULL_VERIFY_1:
+                    errors["base"] = "public_mode_required"
+                elif err.state is SessionState.ESTABLISHED:
+                    errors["base"] = "initialization_timeout"
+                else:
+                    errors["base"] = "pairing_interrupted"
+            except Flic2ProtocolError as err:
                 _LOGGER.warning("Unable to pair Flic 2: %s", err)
                 errors["base"] = "pairing_failed"
             except Exception:
@@ -142,4 +171,3 @@ class Flic2ConfigFlow(ConfigFlow, domain=DOMAIN):
                 "address": self._discovery_info.address.upper(),
             },
         )
-

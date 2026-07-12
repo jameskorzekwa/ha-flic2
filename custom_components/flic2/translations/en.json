@@ -13,8 +13,14 @@
       }
     },
     "error": {
-      "pairing_failed": "Pairing failed. Remove the button from its Flic Hub, hold it for at least 6 seconds, and try again.",
-      "pairing_timeout": "The button stopped responding before pairing completed. Put it back in public mode and try again.",
+      "connection_failed": "Home Assistant could not connect to the button. It may still be connected to a Flic Hub, be out of Bluetooth range, or no longer be available. Remove it from the hub, hold it for at least 6 seconds, and try again.",
+      "public_mode_required": "The button did not respond in public pairing mode. Remove it from any Flic Hub, hold it for at least 6 seconds, and try again.",
+      "no_pairing_slots": "The button has no free pairing slots. Remove it from one or more Flic Hubs or other controllers, then try again.",
+      "pairing_rejected": "The button rejected the pairing request. Hold it for at least 6 seconds to re-enter public pairing mode, then try again.",
+      "authentication_failed": "Home Assistant could not securely verify the button. Put it back in public pairing mode and try again. If this continues, reload the integration before retrying.",
+      "pairing_interrupted": "The button stopped responding during secure pairing. Keep it near a Bluetooth proxy, hold it for at least 6 seconds, and try again.",
+      "initialization_timeout": "Secure pairing completed, but the button did not finish initializing. Hold it for at least 6 seconds and try again.",
+      "pairing_failed": "Pairing failed because the button returned an unexpected response. Put it back in public pairing mode and try again.",
       "unknown": "An unexpected error occurred. Check the Home Assistant logs."
     },
     "abort": {
@@ -28,4 +34,3 @@
     "sensor": {"battery_voltage": {"name": "Battery voltage"}}
   }
 }
-
