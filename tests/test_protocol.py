@@ -73,6 +73,18 @@ def test_plain_up_down_do_not_create_user_event() -> None:
     assert not button_events_need_ack(_event_item(0) + _event_item(1))
 
 
+def test_base_flic_hold_release_does_not_emit_single() -> None:
+    # Captured from a round Flic 2: down, hold, then up+single+was_hold.
+    down = bytes.fromhex("a2267246ca0031")
+    hold = bytes.fromhex("a2a67246ca0003")
+    release = bytes.fromhex("37d27246ca000e")
+
+    assert decode_button_events(down, 153) == []
+    assert [event.event_type for event in decode_button_events(hold, 154)] == ["hold"]
+    assert decode_button_events(release, 155) == []
+    assert button_events_need_ack(release)
+
+
 @pytest.mark.asyncio
 async def test_quick_verify_request_is_fragmented_for_default_mtu() -> None:
     writes: list[bytes] = []
@@ -121,17 +133,20 @@ def test_decode_duo_big_single_and_swipe_left() -> None:
 
 
 def test_duo_decoder_ignores_final_padding_byte() -> None:
-    payload = _packed_bits(
-        (0, 1),
-        (0, 1),
-        (0, 3),
-        (5, 8),
-        (1, 3),
-        (0, 1),
-        (0, 8),
-        (0, 8),
-        (64, 8),
-    ) + b"\x00"
+    payload = (
+        _packed_bits(
+            (0, 1),
+            (0, 1),
+            (0, 3),
+            (5, 8),
+            (1, 3),
+            (0, 1),
+            (0, 8),
+            (0, 8),
+            (64, 8),
+        )
+        + b"\x00"
+    )
 
     decoded = decode_duo_button_events(payload, (0, 0), 0, True)
 
