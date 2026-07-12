@@ -168,6 +168,11 @@ class _BitReader:
     def remaining(self) -> int:
         return self._size - self._position
 
+    @property
+    def unread_bytes(self) -> int:
+        """Return whole unread bytes after the byte currently being consumed."""
+        return self._size // 8 - (self._position + 7) // 8
+
     def read(self, width: int) -> int:
         if width < 0 or self._position + width > self._size:
             raise Flic2ProtocolError("Truncated Flic Duo event bitstream")
@@ -197,7 +202,10 @@ def decode_duo_button_events(
     events: list[ButtonEvent] = []
     needs_ack = False
 
-    while reader.remaining > 8:
+    # Flic's reference decoder continues only while more than one untouched
+    # byte remains. Bits at the end of the current byte plus the final byte are
+    # padding and cannot begin another update.
+    while reader.unread_bytes > 1:
         button_number = reader.read(1)
         if not got_event_count[button_number]:
             event_count_delta = reader.read(1)
@@ -276,7 +284,9 @@ def decode_duo_button_events(
                     acceleration,
                 )
             )
-        if gesture in ("left", "right", "up", "down"):
+        # The single-click timeout repeats the gesture attached to the earlier
+        # release. Emit the swipe only from that release to avoid duplicates.
+        if event_code <= 4 and gesture in ("left", "right", "up", "down"):
             events.append(
                 ButtonEvent(
                     _duo_event_type(button_number, f"swipe_{gesture}"),

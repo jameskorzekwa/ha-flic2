@@ -123,6 +123,45 @@ def test_decode_duo_big_single_and_swipe_left() -> None:
     assert decoded.needs_ack
 
 
+def test_duo_decoder_ignores_final_padding_byte() -> None:
+    payload = _packed_bits(
+        (0, 1),
+        (0, 1),
+        (0, 3),
+        (5, 8),
+        (1, 3),
+        (0, 1),
+        (0, 8),
+        (0, 8),
+        (64, 8),
+    ) + b"\x00"
+
+    decoded = decode_duo_button_events(payload, (0, 0), 0, True)
+
+    assert [event.event_type for event in decoded.events] == ["single"]
+
+
+def test_duo_click_timeout_does_not_repeat_swipe() -> None:
+    payload = _packed_bits(
+        (0, 1),
+        (0, 1),
+        (0, 3),
+        (5, 8),
+        (6, 3),
+        (1, 1),
+        (1, 1),
+        (3, 2),
+        (0, 8),
+        (0, 8),
+        (64, 8),
+    )
+
+    decoded = decode_duo_button_events(payload, (0, 0), 0, True)
+
+    assert [event.event_type for event in decoded.events] == ["single"]
+    assert decoded.events[0].gesture == "down"
+
+
 def test_decode_duo_small_button_hold() -> None:
     payload = _packed_bits(
         (1, 1),  # small button
