@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 _LOCAL_IDLE_DISCONNECT_SECONDS = 50
+_CONNECT_ATTEMPT_TIMEOUT_SECONDS = 75
 
 
 class Flic2Device:
@@ -51,6 +52,7 @@ class Flic2Device:
         self.battery_voltage: float | None = entry.data.get("battery_voltage")
         self._client: BleakClientWithServiceCache | None = None
         self._connect_lock = asyncio.Lock()
+        self._connect_task: asyncio.Task[None] | None = None
         self._event_listeners: set[Callable[[ButtonEvent], None]] = set()
         self._state_listeners: set[Callable[[], None]] = set()
         self._stopping = False
@@ -66,7 +68,7 @@ class Flic2Device:
             change: bluetooth.BluetoothChange,
         ) -> None:
             if not self._stopping:
-                self.hass.async_create_task(self.async_connect())
+                self._schedule_connect()
 
         self.entry.async_on_unload(
             bluetooth.async_register_callback(
@@ -79,7 +81,24 @@ class Flic2Device:
         if bluetooth.async_ble_device_from_address(
             self.hass, self.address, connectable=True
         ):
-            self.hass.async_create_task(self.async_connect())
+            self._schedule_connect()
+
+    @callback
+    def _schedule_connect(self) -> None:
+        """Schedule one connection attempt without building an advert backlog."""
+        if self._stopping or (
+            self._connect_task is not None and not self._connect_task.done()
+        ):
+            return
+        task = self.hass.async_create_task(self.async_connect())
+        self._connect_task = task
+        task.add_done_callback(self._connect_task_done)
+
+    @callback
+    def _connect_task_done(self, task: asyncio.Task[None]) -> None:
+        """Forget a completed connection attempt."""
+        if self._connect_task is task:
+            self._connect_task = None
 
     async def async_connect(self) -> None:
         """Connect through the best available local adapter or proxy."""
@@ -108,62 +127,10 @@ class Flic2Device:
                 self._notify_state_listeners()
 
             try:
-                client = await establish_connection(
-                    BleakClientWithServiceCache,
-                    ble_device,
-                    self.name,
-                    disconnected_callback=_disconnected,
-                    max_attempts=3,
-                    ble_device_callback=_latest_device,
-                    use_services_cache=True,
-                )
-                self._client = client
-                self._mark_activity()
-                self._start_idle_disconnect(client)
-
-                async def _send(payload: bytes) -> None:
-                    await client.write_gatt_char(TX_UUID, payload, response=False)
-
-                pairing = PairingData(
-                    self.entry.data[CONF_PAIRING_IDENTIFIER],
-                    bytes.fromhex(self.entry.data[CONF_PAIRING_KEY]),
-                )
-                session = Flic2Session(
-                    self.address,
-                    _send,
-                    pairing=pairing,
-                    event_count=self.entry.data.get(CONF_EVENT_COUNT, 0),
-                    event_count_small=self.entry.data.get(CONF_EVENT_COUNT_SMALL, 0),
-                    boot_id=self.entry.data.get(CONF_BOOT_ID, 0),
-                    event_callback=self._handle_event,
-                    state_callback=self._handle_state,
-                    mtu=getattr(client, "mtu_size", 23),
-                    auto_disconnect_time=60,
-                )
-
-                async def _process_notification(data: bytes) -> None:
-                    try:
-                        await session.feed_gatt(data)
-                    except Exception as err:
-                        _LOGGER.warning(
-                            "Flic 2 session failed for %s: %s", self.address, err
-                        )
-                        if self._client is client:
-                            with contextlib.suppress(Exception):
-                                await client.disconnect()
-
-                def _notification(_: Any, data: bytearray) -> None:
-                    self._mark_activity()
-                    self.hass.async_create_task(_process_notification(bytes(data)))
-
-                await client.start_notify(RX_UUID, _notification)
-                await session.start()
-                async with asyncio.timeout(20):
-                    await session.ready.wait()
-                if session.failure:
-                    raise session.failure
-                self.available = True
-                self._notify_state_listeners()
+                async with asyncio.timeout(_CONNECT_ATTEMPT_TIMEOUT_SECONDS):
+                    await self._async_establish_session(
+                        ble_device, _latest_device, _disconnected
+                    )
             except Exception:
                 _LOGGER.exception("Unable to connect to Flic 2 %s", self.address)
                 if self._client:
@@ -173,6 +140,68 @@ class Flic2Device:
                 self.available = False
                 self._cancel_idle_disconnect()
                 self._notify_state_listeners()
+
+    async def _async_establish_session(
+        self,
+        ble_device: BLEDevice,
+        latest_device: Callable[[], BLEDevice],
+        disconnected_callback: Callable[[Any], None],
+    ) -> None:
+        """Establish and authenticate one bounded Flic BLE session."""
+        client = await establish_connection(
+            BleakClientWithServiceCache,
+            ble_device,
+            self.name,
+            disconnected_callback=disconnected_callback,
+            max_attempts=3,
+            ble_device_callback=latest_device,
+            use_services_cache=True,
+        )
+        self._client = client
+        self._mark_activity()
+        self._start_idle_disconnect(client)
+
+        async def _send(payload: bytes) -> None:
+            await client.write_gatt_char(TX_UUID, payload, response=False)
+
+        pairing = PairingData(
+            self.entry.data[CONF_PAIRING_IDENTIFIER],
+            bytes.fromhex(self.entry.data[CONF_PAIRING_KEY]),
+        )
+        session = Flic2Session(
+            self.address,
+            _send,
+            pairing=pairing,
+            event_count=self.entry.data.get(CONF_EVENT_COUNT, 0),
+            event_count_small=self.entry.data.get(CONF_EVENT_COUNT_SMALL, 0),
+            boot_id=self.entry.data.get(CONF_BOOT_ID, 0),
+            event_callback=self._handle_event,
+            state_callback=self._handle_state,
+            mtu=getattr(client, "mtu_size", 23),
+            auto_disconnect_time=60,
+        )
+
+        async def _process_notification(data: bytes) -> None:
+            try:
+                await session.feed_gatt(data)
+            except Exception as err:
+                _LOGGER.warning("Flic 2 session failed for %s: %s", self.address, err)
+                if self._client is client:
+                    with contextlib.suppress(Exception):
+                        await client.disconnect()
+
+        def _notification(_: Any, data: bytearray) -> None:
+            self._mark_activity()
+            self.hass.async_create_task(_process_notification(bytes(data)))
+
+        await client.start_notify(RX_UUID, _notification)
+        await session.start()
+        async with asyncio.timeout(20):
+            await session.ready.wait()
+        if session.failure:
+            raise session.failure
+        self.available = True
+        self._notify_state_listeners()
 
     @callback
     def _mark_activity(self) -> None:
@@ -192,9 +221,7 @@ class Flic2Device:
         if task and task is not asyncio.current_task():
             task.cancel()
 
-    async def _async_idle_disconnect(
-        self, client: BleakClientWithServiceCache
-    ) -> None:
+    async def _async_idle_disconnect(self, client: BleakClientWithServiceCache) -> None:
         """Release a quiet BLE link before the button's own idle timeout."""
         try:
             while self._client is client and client.is_connected:
@@ -255,6 +282,12 @@ class Flic2Device:
     async def async_stop(self) -> None:
         """Stop callbacks and disconnect."""
         self._stopping = True
+        connect_task = self._connect_task
+        self._connect_task = None
+        if connect_task and connect_task is not asyncio.current_task():
+            connect_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await connect_task
         self._cancel_idle_disconnect()
         if self._client:
             with contextlib.suppress(Exception):
@@ -283,6 +316,7 @@ async def async_pair_device(
         use_services_cache=True,
     )
     try:
+
         async def _send(payload: bytes) -> None:
             await client.write_gatt_char(TX_UUID, payload, response=False)
 
